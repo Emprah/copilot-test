@@ -177,6 +177,12 @@
         const maxAngle = 90; // Maximum rotation in each direction
         const rotationStep = 5; // Degrees per key press
         
+        // Wheel positioning constants
+        const WHEEL_WIDTH = 280;
+        const WHEEL_HEIGHT = 280;
+        const WHEEL_HORIZONTAL_POSITION = 0.50; // 50% from left
+        const WHEEL_VERTICAL_POSITION = 0.72; // 72% from top
+        
         const wheelContainer = document.getElementById('steering-wheel-container');
         const angleValue = document.getElementById('angle-value');
         const leftKey = document.getElementById('left-key');
@@ -191,7 +197,7 @@
             if (img.complete) {
                 updateWheelPosition();
             } else {
-                img.addEventListener('load', updateWheelPosition);
+                img.addEventListener('load', updateWheelPosition, { once: true });
             }
         }
         
@@ -204,9 +210,8 @@
             const containerRect = container.getBoundingClientRect();
             
             // Calculate the position based on the original image
-            // The wheel is roughly at 50% horizontal, 72% vertical in the original image
-            const wheelLeft = imgRect.left + (imgRect.width * 0.50) - 140; // 140 = half of wheel width
-            const wheelTop = imgRect.top + (imgRect.height * 0.72) - 140; // 140 = half of wheel height
+            const wheelLeft = imgRect.left + (imgRect.width * WHEEL_HORIZONTAL_POSITION) - (WHEEL_WIDTH / 2);
+            const wheelTop = imgRect.top + (imgRect.height * WHEEL_VERTICAL_POSITION) - (WHEEL_HEIGHT / 2);
             
             wheelContainer.style.left = wheelLeft + 'px';
             wheelContainer.style.top = wheelTop + 'px';
