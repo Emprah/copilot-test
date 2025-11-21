@@ -4,8 +4,260 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ship Navigation View</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #scene-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        #steering-wheel-container {
+            position: absolute;
+            /* Position will be calculated to match the wheel in the image */
+            width: 280px;
+            height: 280px;
+            z-index: 10;
+            transition: transform 0.3s ease-out;
+        }
+        
+        #steering-wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle, #8B4513 0%, #654321 100%);
+            border: 8px solid #3d2812;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+        
+        .wheel-spoke {
+            position: absolute;
+            width: 8px;
+            height: 45%;
+            background: #654321;
+            left: 50%;
+            top: 50%;
+            transform-origin: center top;
+            margin-left: -4px;
+            border-radius: 4px;
+        }
+        
+        .wheel-spoke:nth-child(1) { transform: rotate(0deg); }
+        .wheel-spoke:nth-child(2) { transform: rotate(45deg); }
+        .wheel-spoke:nth-child(3) { transform: rotate(90deg); }
+        .wheel-spoke:nth-child(4) { transform: rotate(135deg); }
+        .wheel-spoke:nth-child(5) { transform: rotate(180deg); }
+        .wheel-spoke:nth-child(6) { transform: rotate(225deg); }
+        .wheel-spoke:nth-child(7) { transform: rotate(270deg); }
+        .wheel-spoke:nth-child(8) { transform: rotate(315deg); }
+        
+        .wheel-center {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #3d2812 0%, #654321 100%);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 3px solid #2d1f0f;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        #instructions {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            text-align: center;
+            animation: fadeIn 1s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        #instructions h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        
+        .key-hint {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            margin: 0 5px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .key-hint.active {
+            background: #e74c3c;
+            transform: scale(1.1);
+            transition: all 0.1s ease;
+        }
+        
+        #angle-display {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+    </style>
 </head>
 <body>
-    <img src="ship_steering_view.png" alt="Ship Steering View">
+    <div id="scene-container">
+        <img id="background-image" src="ship_steering_view.png" alt="Ship Steering View">
+        <div id="steering-wheel-container">
+            <div id="steering-wheel">
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-spoke"></div>
+                <div class="wheel-center"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="instructions">
+        <h3>🚢 Steer the Ship!</h3>
+        <div>
+            <span class="key-hint" id="left-key">← Left</span>
+            <span class="key-hint" id="right-key">Right →</span>
+        </div>
+    </div>
+    
+    <div id="angle-display">
+        Wheel Angle: <span id="angle-value">0°</span>
+    </div>
+    
+    <script>
+        // Steering wheel rotation logic
+        let currentAngle = 0;
+        const maxAngle = 90; // Maximum rotation in each direction
+        const rotationStep = 5; // Degrees per key press
+        
+        const wheelContainer = document.getElementById('steering-wheel-container');
+        const angleValue = document.getElementById('angle-value');
+        const leftKey = document.getElementById('left-key');
+        const rightKey = document.getElementById('right-key');
+        
+        // Position the steering wheel to match the original image
+        function positionSteeringWheel() {
+            const img = document.getElementById('background-image');
+            const container = document.getElementById('scene-container');
+            
+            // Wait for image to load
+            if (img.complete) {
+                updateWheelPosition();
+            } else {
+                img.addEventListener('load', updateWheelPosition);
+            }
+        }
+        
+        function updateWheelPosition() {
+            const img = document.getElementById('background-image');
+            const container = document.getElementById('scene-container');
+            
+            // Get the rendered dimensions of the image
+            const imgRect = img.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calculate the position based on the original image
+            // The wheel is roughly at 50% horizontal, 72% vertical in the original image
+            const wheelLeft = imgRect.left + (imgRect.width * 0.50) - 140; // 140 = half of wheel width
+            const wheelTop = imgRect.top + (imgRect.height * 0.72) - 140; // 140 = half of wheel height
+            
+            wheelContainer.style.left = wheelLeft + 'px';
+            wheelContainer.style.top = wheelTop + 'px';
+        }
+        
+        function updateWheelRotation() {
+            wheelContainer.style.transform = `rotate(${currentAngle}deg)`;
+            angleValue.textContent = currentAngle + '°';
+        }
+        
+        function rotateLeft() {
+            if (currentAngle > -maxAngle) {
+                currentAngle -= rotationStep;
+                updateWheelRotation();
+            }
+        }
+        
+        function rotateRight() {
+            if (currentAngle < maxAngle) {
+                currentAngle += rotationStep;
+                updateWheelRotation();
+            }
+        }
+        
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                rotateLeft();
+                leftKey.classList.add('active');
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                rotateRight();
+                rightKey.classList.add('active');
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') {
+                leftKey.classList.remove('active');
+            } else if (e.key === 'ArrowRight') {
+                rightKey.classList.remove('active');
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', updateWheelPosition);
+        
+        // Initialize
+        positionSteeringWheel();
+        updateWheelRotation();
+    </script>
 </body>
 </html>
